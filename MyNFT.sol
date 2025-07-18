@@ -55,6 +55,11 @@ contract MyNFT is IERC721Metadata {
     address public owner;
     address public pendingOwner;
 
+    // Commit-Reveal state variables
+    bytes32 public commitment;
+    bool public revealed;
+    string public hiddenBaseURI;
+
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
         _;
@@ -86,6 +91,11 @@ contract MyNFT is IERC721Metadata {
 
     function tokenURI(uint256 tokenId) external view returns (string memory) {
         require(_ownerOf[tokenId] != address(0), "Token doesn't exist");
+        
+        if (!revealed) {
+            return hiddenBaseURI;
+        }
+        
         return _tokenURIs[tokenId];
     }
 
@@ -202,5 +212,23 @@ contract MyNFT is IERC721Metadata {
         owner = address(0);
         pendingOwner = address(0);
         emit OwnershipTransferred(msg.sender, address(0));
+    }
+
+    // Commit-Reveal functions
+    function setHiddenBaseURI(string memory uri) external onlyOwner {
+        hiddenBaseURI = uri;
+    }
+
+    function commitMetadata(bytes32 _commitment) external onlyOwner {
+        require(!revealed, "Already revealed");
+        commitment = _commitment;
+    }
+
+    function revealMetadata(string memory secret) external onlyOwner {
+        require(!revealed, "Already revealed");
+        require(commitment != bytes32(0), "No commitment");
+        require(keccak256(abi.encodePacked(secret)) == commitment, "Invalid secret");
+        
+        revealed = true;
     }
 }
