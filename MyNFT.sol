@@ -37,6 +37,8 @@ contract MyNFT is IERC721Metadata {
     event Transfer(address indexed from, address indexed to, uint256 indexed id);
     event Approval(address indexed owner, address indexed spender, uint256 indexed id);
     event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
 
     // ERC721 state variables
     mapping(uint256 => address) internal _ownerOf;
@@ -49,9 +51,20 @@ contract MyNFT is IERC721Metadata {
     string private _symbol;
     mapping(uint256 => string) private _tokenURIs;
 
+    // Ownable2Step state variables
+    address public owner;
+    address public pendingOwner;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
+        _;
+    }
+
     constructor(string memory name_, string memory symbol_) {
         _name = name_;
         _symbol = symbol_;
+        owner = msg.sender;
+        emit OwnershipTransferred(address(0), msg.sender);
     }
 
     // ERC165 implementation
@@ -168,5 +181,26 @@ contract MyNFT is IERC721Metadata {
         delete _tokenURIs[id];
 
         emit Transfer(owner, address(0), id);
+    }
+
+    // Ownable2Step functions
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "New owner is zero address");
+        pendingOwner = newOwner;
+        emit OwnershipTransferStarted(owner, newOwner);
+    }
+
+    function acceptOwnership() external {
+        require(msg.sender == pendingOwner, "Not pending owner");
+        address previousOwner = owner;
+        owner = msg.sender;
+        pendingOwner = address(0);
+        emit OwnershipTransferred(previousOwner, msg.sender);
+    }
+
+    function renounceOwnership() external onlyOwner {
+        owner = address(0);
+        pendingOwner = address(0);
+        emit OwnershipTransferred(msg.sender, address(0));
     }
 }
