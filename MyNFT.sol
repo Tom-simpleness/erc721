@@ -60,6 +60,12 @@ contract MyNFT is IERC721Metadata {
     bool public revealed;
     string public hiddenBaseURI;
 
+    // Crowdsale state variables
+    uint256 public constant MAX_SUPPLY = 10000;
+    uint256 public totalSupply;
+    uint256 public mintPrice = 0.1 ether;
+    bool public saleActive;
+
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
         _;
@@ -168,9 +174,11 @@ contract MyNFT is IERC721Metadata {
     function _mint(address to, uint256 id) internal {
         require(to != address(0), "Mint to zero address");
         require(_ownerOf[id] == address(0), "Already minted");
+        require(totalSupply < MAX_SUPPLY, "Max supply reached");
 
         _balanceOf[to]++;
         _ownerOf[id] = to;
+        totalSupply++;
 
         emit Transfer(address(0), to, id);
     }
@@ -185,6 +193,7 @@ contract MyNFT is IERC721Metadata {
         require(owner != address(0), "Not minted");
 
         _balanceOf[owner] -= 1;
+        totalSupply--;
 
         delete _ownerOf[id];
         delete _approvals[id];
@@ -230,5 +239,37 @@ contract MyNFT is IERC721Metadata {
         require(keccak256(abi.encodePacked(secret)) == commitment, "Invalid secret");
         
         revealed = true;
+    }
+
+    // Crowdsale functions
+    function startSale() external onlyOwner {
+        saleActive = true;
+    }
+
+    function stopSale() external onlyOwner {
+        saleActive = false;
+    }
+
+    function setMintPrice(uint256 newPrice) external onlyOwner {
+        mintPrice = newPrice;
+    }
+
+    function mintNFT() external payable {
+        require(saleActive, "Sale not active");
+        require(msg.value >= mintPrice, "Insufficient payment");
+        require(totalSupply < MAX_SUPPLY, "Max supply reached");
+
+        uint256 tokenId = totalSupply + 1;
+        _mint(msg.sender, tokenId);
+
+        // Refund excess payment
+        if (msg.value > mintPrice) {
+            payable(msg.sender).transfer(msg.value - mintPrice);
+        }
+    }
+
+    function mintWithURI(address to, uint256 tokenId, string memory uri) external onlyOwner {
+        _mint(to, tokenId);
+        _setTokenURI(tokenId, uri);
     }
 }
