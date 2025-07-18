@@ -1,0 +1,23 @@
+{
+  "name": "My Cool NFT #2",
+  "description": "The second NFT with different traits and characteristics.",
+  "image": "https://gateway.pinata.cloud/ipfs/bafybeihetbntqkfdxeiudfogo2rh4tsl7qdslqoklho2jwi3lheboouxqu",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Blue"
+    },
+    {
+      "trait_type": "Character",
+      "value": "Pirate"
+    },
+    {
+      "trait_type": "Direction",
+      "value": "Looking Left"
+    },
+    {
+      "trait_type": "Rarity",
+      "value": "Common"
+    }
+  ]
+}

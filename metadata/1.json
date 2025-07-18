@@ -1,0 +1,27 @@
+{
+  "name": "My Cool NFT #1",
+  "description": "The first NFT in our amazing collection! This is a rare piece with unique attributes.",
+  "image": "https://gateway.pinata.cloud/ipfs/bafybeibzzvqire36s6kxvgtkbipkukwtkcxpwhiqj6cchhrhb6bg47c7k4",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Purple"
+    },
+    {
+      "trait_type": "Character",
+      "value": "Fox"
+    },
+    {
+      "trait_type": "Style",
+      "value": "Punk"
+    },
+    {
+      "trait_type": "Accessory",
+      "value": "Cigarette"
+    },
+    {
+      "trait_type": "Rarity",
+      "value": "Legendary"
+    }
+  ]
+}

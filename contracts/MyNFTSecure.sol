@@ -32,7 +32,7 @@ interface IERC721Metadata is IERC721 {
     function tokenURI(uint256 tokenId) external view returns (string memory);
 }
 
-contract MyNFT is IERC721Metadata {
+contract MyNFTSecure is IERC721Metadata {
     // Events
     event Transfer(address indexed from, address indexed to, uint256 indexed id);
     event Approval(address indexed owner, address indexed spender, uint256 indexed id);
@@ -49,21 +49,21 @@ contract MyNFT is IERC721Metadata {
     // Metadata state variables
     string private _name;
     string private _symbol;
-    mapping(uint256 => string) private _tokenURIs;
 
     // Ownable2Step state variables
     address public owner;
     address public pendingOwner;
 
-    // Commit-Reveal state variables
+    // Commit-Reveal state variables - VERSION SÉCURISÉE
     bytes32 public commitment;
     bool public revealed;
     string public hiddenBaseURI;
+    string private baseURI; // ← PRIVÉ maintenant !
 
     // Crowdsale state variables
     uint256 public constant MAX_SUPPLY = 10000;
     uint256 public totalSupply;
-    uint256 public mintPrice = 0.1 ether;
+    uint256 public mintPrice = 0.01 ether;
     bool public saleActive;
 
     // Timelock state variables
@@ -104,21 +104,42 @@ contract MyNFT is IERC721Metadata {
         require(_ownerOf[tokenId] != address(0), "Token doesn't exist");
         
         if (!revealed) {
-            return hiddenBaseURI;
+            return hiddenBaseURI; // Mystery box
         }
         
-        return _tokenURIs[tokenId];
+        // Après reveal : baseURI + tokenId + ".json"
+        return string(abi.encodePacked(baseURI, _toString(tokenId), ".json"));
+    }
+
+    // Utility function to convert uint to string
+    function _toString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
     }
 
     // ERC721 core functions
-    function ownerOf(uint256 id) external view returns (address owner) {
-        owner = _ownerOf[id];
-        require(owner != address(0), "Token doesn't exist");
+    function ownerOf(uint256 id) external view returns (address tokenOwner) {
+        tokenOwner = _ownerOf[id];
+        require(tokenOwner != address(0), "Token doesn't exist");
     }
 
-    function balanceOf(address owner) external view returns (uint256) {
-        require(owner != address(0), "Owner = zero address");
-        return _balanceOf[owner];
+    function balanceOf(address tokenOwner) external view returns (uint256) {
+        require(tokenOwner != address(0), "Owner = zero address");
+        return _balanceOf[tokenOwner];
     }
 
     function setApprovalForAll(address operator, bool approved) external {
@@ -127,11 +148,11 @@ contract MyNFT is IERC721Metadata {
     }
 
     function approve(address spender, uint256 id) external {
-        address owner = _ownerOf[id];
-        require(msg.sender == owner || isApprovedForAll[owner][msg.sender], "Not authorized");
+        address tokenOwner = _ownerOf[id];
+        require(msg.sender == tokenOwner || isApprovedForAll[tokenOwner][msg.sender], "Not authorized");
 
         _approvals[id] = spender;
-        emit Approval(owner, spender, id);
+        emit Approval(tokenOwner, spender, id);
     }
 
     function getApproved(uint256 id) external view returns (address) {
@@ -139,8 +160,8 @@ contract MyNFT is IERC721Metadata {
         return _approvals[id];
     }
 
-    function _isApprovedOrOwner(address owner, address spender, uint256 id) internal view returns (bool) {
-        return (spender == owner || isApprovedForAll[owner][spender] || spender == _approvals[id]);
+    function _isApprovedOrOwner(address tokenOwner, address spender, uint256 id) internal view returns (bool) {
+        return (spender == tokenOwner || isApprovedForAll[tokenOwner][spender] || spender == _approvals[id]);
     }
 
     function transferFrom(address from, address to, uint256 id) public {
@@ -188,23 +209,17 @@ contract MyNFT is IERC721Metadata {
         emit Transfer(address(0), to, id);
     }
 
-    function _setTokenURI(uint256 tokenId, string memory uri) internal {
-        require(_ownerOf[tokenId] != address(0), "Token doesn't exist");
-        _tokenURIs[tokenId] = uri;
-    }
-
     function _burn(uint256 id) internal {
-        address owner = _ownerOf[id];
-        require(owner != address(0), "Not minted");
+        address tokenOwner = _ownerOf[id];
+        require(tokenOwner != address(0), "Not minted");
 
-        _balanceOf[owner] -= 1;
+        _balanceOf[tokenOwner] -= 1;
         totalSupply--;
 
         delete _ownerOf[id];
         delete _approvals[id];
-        delete _tokenURIs[id];
 
-        emit Transfer(owner, address(0), id);
+        emit Transfer(tokenOwner, address(0), id);
     }
 
     // Ownable2Step functions
@@ -228,22 +243,26 @@ contract MyNFT is IERC721Metadata {
         emit OwnershipTransferred(msg.sender, address(0));
     }
 
-    // Commit-Reveal functions
+    // Commit-Reveal functions - VERSION SÉCURISÉE
     function setHiddenBaseURI(string memory uri) external onlyOwner {
         hiddenBaseURI = uri;
     }
+
+    // ❌ SUPPRIMÉ : Plus de setBaseURI() séparée !
 
     function commitMetadata(bytes32 _commitment) external onlyOwner {
         require(!revealed, "Already revealed");
         commitment = _commitment;
     }
 
-    function revealMetadata(string memory secret) external onlyOwner {
+    // 🔐 RÉVEAL SÉCURISÉ : baseURI définie SEULEMENT au moment du reveal
+    function revealMetadata(string memory secret, string memory _baseURI) external onlyOwner {
         require(!revealed, "Already revealed");
         require(commitment != bytes32(0), "No commitment");
-        require(keccak256(abi.encodePacked(secret)) == commitment, "Invalid secret");
+        require(keccak256(abi.encodePacked(secret, _baseURI)) == commitment, "Invalid secret or baseURI");
         
         revealed = true;
+        baseURI = _baseURI; // ← Défini SEULEMENT maintenant !
     }
 
     // Crowdsale functions
@@ -271,11 +290,6 @@ contract MyNFT is IERC721Metadata {
         if (msg.value > mintPrice) {
             payable(msg.sender).transfer(msg.value - mintPrice);
         }
-    }
-
-    function mintWithURI(address to, uint256 tokenId, string memory uri) external onlyOwner {
-        _mint(to, tokenId);
-        _setTokenURI(tokenId, uri);
     }
 
     // Timelock withdraw functions
@@ -312,4 +326,4 @@ contract MyNFT is IERC721Metadata {
     function getContractBalance() external view returns (uint256) {
         return address(this).balance;
     }
-}
+} 

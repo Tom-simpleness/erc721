@@ -1,0 +1,11 @@
+{
+  "name": "Mystery Box",
+  "description": "This NFT has not been revealed yet. Stay tuned for the big reveal!",
+  "image": "https://gateway.pinata.cloud/ipfs/bafybeiffeobw3sxee742xr33acjbrfyes5456dnzo6hvyivbvd2npiyysq",
+  "attributes": [
+    {
+      "trait_type": "Status",
+      "value": "Unrevealed"
+    }
+  ]
+}

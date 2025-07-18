@@ -1,0 +1,23 @@
+{
+  "name": "My Cool NFT #3",
+  "description": "The third NFT featuring epic traits and stunning visuals.",
+  "image": "https://gateway.pinata.cloud/ipfs/bafybeicgklaof5jiz6efd6vgbmfhuzmse5nvvsve2uyavlqnkcgxmglx6q",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Orange"
+    },
+    {
+      "trait_type": "Direction",
+      "value": "Looking Left"
+    },
+    {
+      "trait_type": "Accessory",
+      "value": "Speed Glasses Multicolor"
+    },
+    {
+      "trait_type": "Rarity",
+      "value": "Epic"
+    }
+  ]
+}
