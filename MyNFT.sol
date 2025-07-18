@@ -66,6 +66,11 @@ contract MyNFT is IERC721Metadata {
     uint256 public mintPrice = 0.1 ether;
     bool public saleActive;
 
+    // Timelock state variables
+    uint256 public constant GRACE_PERIOD = 1 weeks;
+    uint256 public withdrawUnlockTime;
+    bool public withdrawRequested;
+
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
         _;
@@ -271,5 +276,40 @@ contract MyNFT is IERC721Metadata {
     function mintWithURI(address to, uint256 tokenId, string memory uri) external onlyOwner {
         _mint(to, tokenId);
         _setTokenURI(tokenId, uri);
+    }
+
+    // Timelock withdraw functions
+    function requestWithdraw() external onlyOwner {
+        require(revealed, "Must reveal before withdraw");
+        require(!withdrawRequested, "Withdraw already requested");
+        
+        withdrawRequested = true;
+        withdrawUnlockTime = block.timestamp + GRACE_PERIOD;
+    }
+
+    function executeWithdraw() external onlyOwner {
+        require(withdrawRequested, "No withdraw requested");
+        require(block.timestamp >= withdrawUnlockTime, "Grace period not finished");
+        
+        withdrawRequested = false;
+        withdrawUnlockTime = 0;
+        
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No funds to withdraw");
+        
+        (bool success, ) = payable(owner).call{value: balance}("");
+        require(success, "Transfer failed");
+    }
+
+    function cancelWithdraw() external onlyOwner {
+        require(withdrawRequested, "No withdraw requested");
+        
+        withdrawRequested = false;
+        withdrawUnlockTime = 0;
+    }
+
+    // View function to check contract balance
+    function getContractBalance() external view returns (uint256) {
+        return address(this).balance;
     }
 }
