@@ -1,42 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-interface IERC165 {
-    function supportsInterface(bytes4 interfaceID) external view returns (bool);
-}
+import "./interfaces/IERC721.sol";
+import "./interfaces/IERC721Metadata.sol";
+import "./interfaces/IERC165.sol";
+import "./interfaces/IERC721Receiver.sol";
+import "./lib/StringUtils.sol";
 
-interface IERC721 is IERC165 {
-    function balanceOf(address owner) external view returns (uint256 balance);
-    function ownerOf(uint256 tokenId) external view returns (address owner);
-    function safeTransferFrom(address from, address to, uint256 tokenId) external;
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes calldata data) external;
-    function transferFrom(address from, address to, uint256 tokenId) external;
-    function approve(address to, uint256 tokenId) external;
-    function getApproved(uint256 tokenId) external view returns (address operator);
-    function setApprovalForAll(address operator, bool _approved) external;
-    function isApprovedForAll(address owner, address operator) external view returns (bool);
-}
+contract MyNFTSecure is IERC721, IERC721Metadata, IERC165 {
+    using StringUtils for uint256;
 
-interface IERC721Receiver {
-    function onERC721Received(
-        address operator,
-        address from,
-        uint256 tokenId,
-        bytes calldata data
-    ) external returns (bytes4);
-}
-
-interface IERC721Metadata is IERC721 {
-    function name() external view returns (string memory);
-    function symbol() external view returns (string memory);
-    function tokenURI(uint256 tokenId) external view returns (string memory);
-}
-
-contract MyNFTSecure is IERC721Metadata {
-    // Events
-    event Transfer(address indexed from, address indexed to, uint256 indexed id);
-    event Approval(address indexed owner, address indexed spender, uint256 indexed id);
-    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
+    // Events are defined in the imported interfaces
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
 
@@ -84,7 +58,7 @@ contract MyNFTSecure is IERC721Metadata {
     }
 
     // ERC165 implementation
-    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165) returns (bool) {
         return
             interfaceId == type(IERC721).interfaceId ||
             interfaceId == type(IERC721Metadata).interfaceId ||
@@ -92,15 +66,15 @@ contract MyNFTSecure is IERC721Metadata {
     }
 
     // Metadata implementation
-    function name() external view returns (string memory) {
+    function name() public view virtual override(IERC721Metadata) returns (string memory) {
         return _name;
     }
 
-    function symbol() external view returns (string memory) {
+    function symbol() public view virtual override(IERC721Metadata) returns (string memory) {
         return _symbol;
     }
 
-    function tokenURI(uint256 tokenId) external view returns (string memory) {
+    function tokenURI(uint256 tokenId) public view virtual override(IERC721Metadata) returns (string memory) {
         require(_ownerOf[tokenId] != address(0), "Token doesn't exist");
         
         if (!revealed) {
@@ -108,46 +82,28 @@ contract MyNFTSecure is IERC721Metadata {
         }
         
         // Après reveal : baseURI + tokenId + ".json"
-        return string(abi.encodePacked(baseURI, _toString(tokenId), ".json"));
+        return string(abi.encodePacked(baseURI, tokenId.toString(), ".json"));
     }
 
-    // Utility function to convert uint to string
-    function _toString(uint256 value) internal pure returns (string memory) {
-        if (value == 0) {
-            return "0";
-        }
-        uint256 temp = value;
-        uint256 digits;
-        while (temp != 0) {
-            digits++;
-            temp /= 10;
-        }
-        bytes memory buffer = new bytes(digits);
-        while (value != 0) {
-            digits -= 1;
-            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
-            value /= 10;
-        }
-        return string(buffer);
-    }
+    // Utility function to convert uint to string has been moved to StringUtils.sol
 
     // ERC721 core functions
-    function ownerOf(uint256 id) external view returns (address tokenOwner) {
+    function ownerOf(uint256 id) public view virtual override(IERC721) returns (address tokenOwner) {
         tokenOwner = _ownerOf[id];
         require(tokenOwner != address(0), "Token doesn't exist");
     }
 
-    function balanceOf(address tokenOwner) external view returns (uint256) {
+    function balanceOf(address tokenOwner) public view virtual override(IERC721) returns (uint256) {
         require(tokenOwner != address(0), "Owner = zero address");
         return _balanceOf[tokenOwner];
     }
 
-    function setApprovalForAll(address operator, bool approved) external {
+    function setApprovalForAll(address operator, bool approved) public virtual override(IERC721) {
         isApprovedForAll[msg.sender][operator] = approved;
         emit ApprovalForAll(msg.sender, operator, approved);
     }
 
-    function approve(address spender, uint256 id) external {
+    function approve(address spender, uint256 id) public virtual override(IERC721) {
         address tokenOwner = _ownerOf[id];
         require(msg.sender == tokenOwner || isApprovedForAll[tokenOwner][msg.sender], "Not authorized");
 
@@ -155,7 +111,7 @@ contract MyNFTSecure is IERC721Metadata {
         emit Approval(tokenOwner, spender, id);
     }
 
-    function getApproved(uint256 id) external view returns (address) {
+    function getApproved(uint256 id) public view virtual override(IERC721) returns (address) {
         require(_ownerOf[id] != address(0), "Token doesn't exist");
         return _approvals[id];
     }
@@ -164,7 +120,7 @@ contract MyNFTSecure is IERC721Metadata {
         return (spender == tokenOwner || isApprovedForAll[tokenOwner][spender] || spender == _approvals[id]);
     }
 
-    function transferFrom(address from, address to, uint256 id) public {
+    function transferFrom(address from, address to, uint256 id) public virtual override(IERC721) {
         require(from == _ownerOf[id], "From != owner");
         require(to != address(0), "Transfer to zero address");
         require(_isApprovedOrOwner(from, msg.sender, id), "Not authorized");
@@ -178,19 +134,14 @@ contract MyNFTSecure is IERC721Metadata {
         emit Transfer(from, to, id);
     }
 
-    function safeTransferFrom(address from, address to, uint256 id) external {
-        transferFrom(from, to, id);
-        require(
-            to.code.length == 0 || 
-            IERC721Receiver(to).onERC721Received(msg.sender, from, id, "") == IERC721Receiver.onERC721Received.selector,
-            "Unsafe recipient"
-        );
+    function safeTransferFrom(address from, address to, uint256 id) public virtual override(IERC721) {
+        this.safeTransferFrom(from, to, id, "");
     }
 
-    function safeTransferFrom(address from, address to, uint256 id, bytes calldata data) external {
+    function safeTransferFrom(address from, address to, uint256 id, bytes calldata data) public virtual override(IERC721) {
         transferFrom(from, to, id);
         require(
-            to.code.length == 0 || 
+            to.code.length == 0 ||
             IERC721Receiver(to).onERC721Received(msg.sender, from, id, data) == IERC721Receiver.onERC721Received.selector,
             "Unsafe recipient"
         );
@@ -244,11 +195,9 @@ contract MyNFTSecure is IERC721Metadata {
     }
 
     // Commit-Reveal functions - VERSION SÉCURISÉE
-    function setHiddenBaseURI(string memory uri) external onlyOwner {
+    function setHiddenBaseURI(string calldata uri) external onlyOwner {
         hiddenBaseURI = uri;
     }
-
-    // ❌ SUPPRIMÉ : Plus de setBaseURI() séparée !
 
     function commitMetadata(bytes32 _commitment) external onlyOwner {
         require(!revealed, "Already revealed");
@@ -256,10 +205,10 @@ contract MyNFTSecure is IERC721Metadata {
     }
 
     // 🔐 RÉVEAL SÉCURISÉ : baseURI définie SEULEMENT au moment du reveal
-    function revealMetadata(string memory secret, string memory _baseURI) external onlyOwner {
+    function revealMetadata(string calldata _baseURI) external onlyOwner {
         require(!revealed, "Already revealed");
         require(commitment != bytes32(0), "No commitment");
-        require(keccak256(abi.encodePacked(secret, _baseURI)) == commitment, "Invalid secret or baseURI");
+        require(keccak256(abi.encodePacked(_baseURI)) == commitment, "Invalid baseURI");
         
         revealed = true;
         baseURI = _baseURI; // ← Défini SEULEMENT maintenant !
@@ -280,16 +229,11 @@ contract MyNFTSecure is IERC721Metadata {
 
     function mintNFT() external payable {
         require(saleActive, "Sale not active");
-        require(msg.value >= mintPrice, "Insufficient payment");
+        require(msg.value == mintPrice, "Payment must be exact mint price");
         require(totalSupply < MAX_SUPPLY, "Max supply reached");
 
         uint256 tokenId = totalSupply + 1;
         _mint(msg.sender, tokenId);
-
-        // Refund excess payment
-        if (msg.value > mintPrice) {
-            payable(msg.sender).transfer(msg.value - mintPrice);
-        }
     }
 
     // Timelock withdraw functions
@@ -326,4 +270,5 @@ contract MyNFTSecure is IERC721Metadata {
     function getContractBalance() external view returns (uint256) {
         return address(this).balance;
     }
-} 
+}
+
